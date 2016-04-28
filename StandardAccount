@@ -1,0 +1,99 @@
+/*
+Date: 4/28/2016
+Application Name: Semester Project – Part 5: 
+                  First Shenandoah Bank Information System StandardAccount Class
+Team Members: Matt Seiler, Andrew Mize, Danielle Vasquez, Anton Zelster
+Purpose: Banking system with GUI to create Customers/accounts, accept deposits
+and withdrawals. Also can display current balance and transaction reports. Also
+can load and save data to/from a database.
+*/
+package GroupPart5;
+import java.util.*;
+import java.text.*;
+public class StandardAccount {
+    //Andrew did most of this class
+    
+    //transactions array
+    private ArrayList<BankTransaction> transactions = 
+            new ArrayList<BankTransaction>();
+    //Data fields
+    private BankCustomer myCustomer;
+    
+    //Constructor
+    public StandardAccount(BankCustomer myCustomer){
+        this.myCustomer = myCustomer;
+    }
+    
+    //Methods
+    public void enterTransaction(String description, double amount){
+        transactions.add(new BankTransaction(description, amount)); 
+    }
+    //Overloaded enterTransaction for loaded StandardAccounts
+    public void enterTransaction(Long timestamp, String description,
+            double amount){
+        transactions.add(new BankTransaction(timestamp, description, amount));
+    }
+    
+    //Number of BankTransaction objects stored
+    public int transactionCount(){
+        return transactions.size(); 
+    }
+    
+    public double getBalance(){
+        double balance=0.0;
+        for(BankTransaction e : transactions){//for each transactions object
+           balance += e.getAmount();
+        }
+        return balance; 
+    }
+    
+    //return Transaction
+    public BankTransaction returnTransaction(int pos){
+        return transactions.get(pos); 
+    }
+    
+    public String getTransaction(int pos){
+        String transaction = "";
+        String amount = (transactions.get(pos).getAmount() + "");
+        String description = transactions.get(pos).getDescription();
+        
+        transaction = amount + "\t" + description;
+        
+        return transaction;
+    }
+    
+    public BankCustomer getCustomer(){
+        return myCustomer; 
+    }
+    
+    public String accountListing(){     //Print details for all transactinos
+        String listing = "";
+        String description = "";
+        double amount = 0.0;
+        String dateTime = "";
+        String balanceS = (NumberFormat.getCurrencyInstance().
+                    format(this.getBalance()) + ""); //Convert to currency
+        for(int i=0;i<transactions.size();i++){
+            //list all details
+            description = transactions.get(i).getDescription();
+            amount = transactions.get(i).getAmount(); 
+            //Convert amount to currency format
+            String amountCurrency = (NumberFormat.
+                    getCurrencyInstance().format(amount) + "");
+            dateTime = transactionTimeStamp(transactions.get(i).getTimeStamp());
+            String format = "%-30s %-20s %5s";//Format specifications
+            listing += String.format(format,dateTime,amountCurrency,description) 
+                    + "\n";
+                    } 
+        listing += "----------------\nBalance: " + balanceS;
+       return listing;
+    }
+    
+    public String transactionTimeStamp(long millis){
+        //Convert milliseconds to date/time
+        SimpleDateFormat dateFormat = new SimpleDateFormat("M/dd/yyyy"
+                                                     + " hh:mm:ss a");
+        Date newDate = new Date(millis);
+        return dateFormat.format(newDate);
+    }
+}
