@@ -1,0 +1,44 @@
+/*
+Date: 4/28/2016
+Application Name: Semester Project – Part 5: 
+                  First Shenandoah Bank Information System BankTransaction Class
+Team Members: Matt Seiler, Andrew Mize, Danielle Vasquez, Anton Zelster
+Purpose: Banking system with GUI to create Customers/accounts, accept deposits
+and withdrawals. Also can display current balance and transaction reports. Also
+can load and save data to/from a database.
+*/
+package GroupPart5;
+//Danielle did most of this class
+public class BankTransaction {
+    //Data fields
+    private long millisTimeStamp;
+    private String description;
+    private double amount;
+    
+    //Constructor
+    public BankTransaction(String description, double amount){
+        this.description = description;
+        this.amount = amount;
+        //Save the system time for each transaction
+        this.millisTimeStamp = System.currentTimeMillis();
+    }
+    
+        //Overloaded Constructor for loaded data
+    public BankTransaction(Long timestamp, String description, double amount){
+        this.description = description;
+        this.amount = amount;
+        this.millisTimeStamp = timestamp;
+    }
+    
+    //Mathods
+    public double getAmount(){
+        return amount;
+    }
+    public String getDescription(){
+        return description; 
+    }
+
+    public long getTimeStamp(){
+        return millisTimeStamp;
+    }
+}
