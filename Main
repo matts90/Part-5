@@ -1,0 +1,369 @@
+/*
+Date: 4/28/2016
+Application Name: Semester Project – Part 5: 
+                  First Shenandoah Bank Information System JavaFX Main Class
+Team Members: Matt Seiler, Andrew Mize, Danielle Vasquez, Anton Zelster
+Purpose: Banking system with GUI to create Customers/accounts, accept deposits
+and withdrawals. Also can display current balance and transaction reports. Also
+can load and save data to/from a database.
+*/
+package GroupPart5;
+
+//We all worked together on this class
+
+import javafx.scene.text.*;
+import javafx.application.Application;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
+import javafx.stage.Stage;
+import java.util.*;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
+import javafx.scene.control.Alert.AlertType;
+import javafx.scene.input.KeyCode;
+import java.sql.*;
+import oracle.jdbc.pool.*;
+
+
+public class BankAppFX extends Application {
+    //ArrayLists for storing customer and account objects
+    public static ArrayList<StandardAccount> accounts = new 
+        ArrayList<StandardAccount>(); 
+    public static ArrayList<BankCustomer> customers = new
+        ArrayList<BankCustomer>();
+    
+    //Declare controls
+    Button btnAddCust;
+    Button btnEnterTrans;
+    Button btnDisplayAccount;
+    ListView<String> custList; 
+    TextArea transReport;
+    Label lblDescription;
+    Label lblAmount;
+    Label lblSelectCust;
+    Label lblTransReportTitle;
+    TextField txtAddCust;
+    TextField txtDescription;
+    TextField txtAmount;
+    RadioButton radDeposit;
+    RadioButton radWithdrawal;
+    //ObservableList for ListView custList
+    ObservableList<String> name;
+    
+    Connection dbConn;
+    Statement commStmt;
+    ResultSet dbResults;
+    
+    @Override
+    public void start(Stage primaryStage) {
+        //Initialize controls
+        btnAddCust = new Button("Add Customer");
+        btnEnterTrans = new Button("Enter Transaction");
+        btnDisplayAccount = new Button("Display Account");
+        custList = new ListView<>(name); 
+        transReport = new TextArea();
+        lblDescription = new Label("Description:");
+        lblAmount = new Label("Amount:");
+        lblSelectCust = new Label("Select Customer above, then"
+                + " click the Display Account button to view:");
+        lblTransReportTitle = new Label("Transaction Report:");
+        txtAddCust = new TextField();
+        txtDescription = new TextField();
+        txtAmount = new TextField();
+        radDeposit = new RadioButton("Deposit");
+        radWithdrawal = new RadioButton("Withdrawal");
+        name = FXCollections.observableArrayList();
+        
+        //Don't allow user to type in the Transaction Report (Account Listing)
+        transReport.setEditable(false);
+        
+        //Put radio buttons in group so only one can be selected at a time
+        final ToggleGroup group = new ToggleGroup();
+        radDeposit.setToggleGroup(group);
+        radWithdrawal.setToggleGroup(group);
+
+        //Create pane and add controls to pane
+        GridPane primaryPane = new GridPane();
+        primaryPane.add(custList,0,0);
+        primaryPane.add(txtAddCust,0,4);
+        primaryPane.add(btnAddCust,1,4);
+        primaryPane.add(lblDescription,2,0);
+        primaryPane.add(lblAmount,2,1);
+        primaryPane.add(lblTransReportTitle,0,5);
+        primaryPane.add(txtDescription,3,0);
+        primaryPane.add(txtAmount,3,1);
+        primaryPane.add(radDeposit,2,2);
+        primaryPane.add(radWithdrawal,3,2);
+        primaryPane.add(btnEnterTrans,3,3);
+        primaryPane.add(transReport,0,7);
+        primaryPane.add(lblSelectCust,0,6);
+        primaryPane.add(btnDisplayAccount,3,6);
+        
+        //Specifiy sizing, spans, and padding
+        custList.setPrefSize(400,200);
+        transReport.setPrefSize(730,300);
+        GridPane.setColumnSpan(custList,2);
+        GridPane.setRowSpan(custList,4);
+        GridPane.setColumnSpan(transReport,4);
+        GridPane.setColumnSpan(lblSelectCust,3);
+        primaryPane.setHgap(20); //horizontal gap in pixels
+        primaryPane.setVgap(20);
+        primaryPane.setPadding(new Insets(20, 20, 20, 20));
+        lblTransReportTitle.setFont(Font.font("Tahoma",FontWeight.BOLD, 18));
+        //Set font to MONOSPACED to make TextArea transReport formatting work
+        //properly.
+        transReport.setFont(Font.font("Monospaced")); 
+        GridPane.setMargin(lblTransReportTitle, new Insets(50,20,0,100));
+
+        Scene scene = new Scene(primaryPane, 800, 750);
+        
+        primaryStage.setTitle("First Shenadoah Bank Protoype");
+        primaryStage.setScene(scene);
+        primaryStage.show();
+        
+        //Coding help for Alerts from 
+        //http://code.makery.ch/blog/javafx-dialogs-official/
+        
+        //Alert if no name typed in TextField when Add Customer button clicked
+        Alert alertNoCustName = new Alert(AlertType.ERROR);
+        alertNoCustName.setTitle("Error!");
+        alertNoCustName.setHeaderText("No Customer Name Entered!");
+        alertNoCustName.setContentText("Please type in a customer name first.");
+        
+        //Alert if no customers created yet
+        Alert alertNoCust = new Alert(AlertType.ERROR);
+        alertNoCust.setTitle("Error!");
+        alertNoCust.setHeaderText("No Customer Created!");
+        alertNoCust.setContentText("Please create a customer first.");
+        
+        //Alert if no customers selected
+        Alert alertNoCustSelected = new Alert(AlertType.ERROR);
+        alertNoCustSelected.setTitle("Error!");
+        alertNoCustSelected.setHeaderText("No Customer Selected!");
+        alertNoCustSelected.setContentText("Please select a customer first.");
+        
+        //Alert if no Description or Amount Entered
+        Alert alertInput = new Alert(AlertType.ERROR);
+        alertInput.setTitle("Error!");
+        alertInput.setHeaderText("Description AND amount required!");
+        alertInput.setContentText("Please enter a description AND amount"
+                + " first.");
+        
+        //Alert if no transaction type selected
+        Alert alertSelectRad = new Alert(AlertType.ERROR);
+        alertSelectRad.setTitle("Error!");
+        alertSelectRad.setHeaderText("No Transaction Type Selected!");
+        alertSelectRad.setContentText("Please select Deposit or Withdrawal"
+                + " first.");
+                        
+        //Code that runs when Add Customer button clicked
+        btnAddCust.setOnAction(e -> {
+            //Accept input and trim() off any spaces on either side of name
+            String input = txtAddCust.getText().trim();
+            //Used the following validation instead of .isEmpty() to also
+            //prevent the user from pressing the spacebar and allowing a
+            //blankspace be used as an input
+            if (input.length() == 0){
+               alertNoCustName.showAndWait(); 
+            }
+            else{
+                name.clear();
+                customers.add(new BankCustomer(input));
+                for(BankCustomer each: customers){
+                    name.add(each.getCustomerName());
+                    custList.setItems(name);
+                }
+                accounts.add(new StandardAccount(customers.get(name.size()-1))); 
+                txtAddCust.clear();
+            }
+        });
+        
+        //Code that runs when Enter Transaction button is clicked
+        btnEnterTrans.setOnAction(e ->{
+           Integer size = name.size();
+           if (size == 0)
+           {
+                alertNoCust.showAndWait(); 
+           }
+           else
+           {
+                if(custList.getSelectionModel().isEmpty())
+                {
+                    alertNoCustSelected.showAndWait();
+                }
+                else if (txtDescription.getText().isEmpty() || 
+                        txtAmount.getText().isEmpty()){
+                    alertInput.showAndWait();
+                }
+                else
+                {
+                    //If all validations pass, verify radio button selection,
+                    //and store transaction
+                    String description = txtDescription.getText();
+                    Double amount = Double.valueOf(txtAmount.getText());
+                    Integer selection = custList.getSelectionModel().
+                            getSelectedIndex();
+                    if(radDeposit.isSelected())
+                    {
+                        //Make and store deposit
+                        accounts.get(selection).
+                                enterTransaction(description,amount);   
+                        txtDescription.clear();
+                        txtAmount.clear();
+                        radDeposit.setSelected(false);
+                        radWithdrawal.setSelected(false);
+                    }
+                    else if(radWithdrawal.isSelected())
+                    {
+                        //Make and store withdrawal
+                        accounts.get(selection).enterTransaction(description,
+                                (amount * -1));
+                        txtDescription.clear();
+                        txtAmount.clear();
+                        radDeposit.setSelected(false);
+                        radWithdrawal.setSelected(false);
+                    }
+                    else
+                      alertSelectRad.showAndWait(); 
+                }
+            }
+        });
+        
+        //Code that runds when Display Account button is clicked
+        btnDisplayAccount.setOnAction(e ->{
+           if(custList.getSelectionModel().isEmpty())
+           {
+                alertNoCustSelected.showAndWait();
+           }
+           else
+           {
+               //If validation passes, display Account Listing
+                transReport.clear();
+                Integer selection = custList.getSelectionModel().
+                getSelectedIndex();
+                transReport.setText("Customer: "
+                             + customers.get(selection).getCustomerName()
+                             + "\n----------------\n"
+                             + accounts.get(selection).accountListing());     
+           }
+        }); 
+        
+        loadDataFromDB(); //loadDataFromDB called automatically on startup
+        sendDBCommand("DELETE FROM SYSTEM.CUSTOMERS"); // Prevent data from being duplicated
+        sendDBCommand("DELETE FROM SYSTEM.TRANSACTIONS"); // Prevent data from being duplicated
+        
+    }
+    //Code that runs after automatically being called from start
+    public void loadDataFromDB(){
+        //Select all data from Customers table
+        String sqlQueryCust = "SELECT * FROM SYSTEM.CUSTOMERS"
+                + " ORDER BY CUSTID";
+        sendDBCommand(sqlQueryCust); //send statement to method to be executed
+        //Try to execute the following code
+        try{
+            while(dbResults.next()){ //While there is more data
+                int custIDCust = 0;
+                String custName = "";
+                //Save Cusomer ID and Customer Name into new BankCustomer objects
+                custIDCust = dbResults.getInt(1);
+                custName = dbResults.getString(2);
+                customers.add(new BankCustomer(custIDCust,custName));
+                name.clear();
+                //Add each BankCustomer object to custList
+                for(BankCustomer each: customers){
+                    name.add(each.getCustomerName());
+                    custList.setItems(name);
+                }
+                //Create a StandardAccount object for each customer
+                accounts.add(new StandardAccount(customers.get(name.size()-1)));
+            }
+        }
+         catch (SQLException ex) //If error, report error in transReport
+        {
+            transReport.setText(ex.toString());
+        }
+        //Select all data from Transactions table
+        String sqlQueryTrans = "SELECT * FROM SYSTEM.TRANSACTIONS"
+                + " ORDER BY TIMESTAMP";
+        sendDBCommand(sqlQueryTrans); //Send statement to method to execute
+        //Try to do the following code
+        try{
+            while(dbResults.next()){ //While there's more data
+                int custIDTrans = 0;
+                long timeStamp = 0L;
+                double amount = 0.0;
+                String description = "";
+                //Save Customer ID, Time Stamp, Amount, and Description to
+                //variables to be used for creating new StandardAccounts
+                custIDTrans = dbResults.getInt(1);
+                timeStamp = dbResults.getLong(2);
+                amount = dbResults.getDouble(3); 
+                description = dbResults.getString(4);
+                //Use above variables to save data into each StandardAccount
+                //object
+                for (StandardAccount each : accounts){
+                    if(each.getCustomer().getCustomerID() == custIDTrans)
+                        each.enterTransaction(timeStamp,description,amount);
+                }
+            }
+        }
+         catch (SQLException ex)//If Error, print to transReport
+        {
+            transReport.setText(ex.toString());
+        }
+    }
+    //Automatically tun this code when program is closed
+    public void stop(){
+        //Build Insert statement for each BankCustomer object
+        for(BankCustomer e: customers){
+            String sqlQueryCust = "";
+            sqlQueryCust += "INSERT INTO CUSTOMERS (CUSTID,CUSTNAME) VALUES (";
+            sqlQueryCust += e.getCustomerID() +",";
+            sqlQueryCust += "'" + e.getCustomerName() +"')";
+            sendDBCommand(sqlQueryCust); //Send Insert statement to be executed
+        }
+        //Build Insert statement for each Standard Account object
+        for(StandardAccount each: accounts){
+            for(int i=0;i<each.transactionCount();i++){
+                String sqlQueryTrans = "";
+                sqlQueryTrans += "INSERT INTO TRANSACTIONS (CUSTID,TIMESTAMP,"
+                        + "AMOUNT,DESCRIPTION) VALUES (";
+                sqlQueryTrans += each.getCustomer().getCustomerID() + ",";
+                sqlQueryTrans += each.returnTransaction(i).getTimeStamp() + ",";
+                sqlQueryTrans += each.returnTransaction(i).getAmount() + ",";
+                sqlQueryTrans += "'" + each.returnTransaction(i).getDescription()
+                        + "')";
+                sendDBCommand(sqlQueryTrans);//Send Insert to be executed
+            }
+        }       
+    }
+        //Method for running SQL statements
+        public void sendDBCommand(String sqlQuery){   
+            //Variables used to connect to database
+            String URL = "jdbc:oracle:thin:@localhost:1521:XE";
+            String userID = "system";
+            String userPASS = "password";
+            OracleDataSource ds;
+
+            try //Try to do the following code
+            {   //Connect to database and execute SQL statement
+                ds = new OracleDataSource();
+                ds.setURL(URL);
+                dbConn = ds.getConnection(userID,userPASS);
+                commStmt = dbConn.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,
+                        ResultSet.CONCUR_READ_ONLY);
+                dbResults = commStmt.executeQuery(sqlQuery);
+            }
+            catch (SQLException e) //If error, print to transReport
+            {
+                transReport.setText(e.toString());
+            }
+        }
+    public static void main(String[] args) {
+        launch(args);
+    }  
+}
