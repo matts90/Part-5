@@ -1,0 +1,46 @@
+/*
+Date: 4/28/2016
+Application Name: Semester Project – Part 5: 
+                  First Shenandoah Bank Information System BankCustomer Class
+Team Members: Matt Seiler, Andrew Mize, Danielle Vasquez, Anton Zelster
+Purpose: Banking system with GUI to create Customers/accounts, accept deposits
+and withdrawals. Also can display current balance and transaction reports. Also
+can load and save data to/from a database.
+*/
+package GroupPart5;
+//Anton did most of this class
+public class BankCustomer {
+    //Data fields
+    private String customerName;
+    private int customerID;
+    private static int nextID = 0;
+    
+   //Constructor
+   public BankCustomer(String customerName){
+       this.customerName = customerName;
+       //If no loaded customers, initialize nextID to 100001
+       if (nextID == 0){ 
+           nextID = 100001;
+       }
+       this.customerID = nextID;
+       nextID++;//Automatically increment customerID for each object
+   }
+   
+   //Overloaded Constructor for loaded BankCustomers
+   public BankCustomer(int custID, String customerName){
+       this.customerName = customerName;
+       this.customerID = custID;
+       nextID = custID; 
+       nextID++;
+   }
+   
+   //Methods
+   public String getCustomerName(){
+       return customerName;
+   }
+   
+   public int getCustomerID(){
+       return customerID;
+   }
+   
+}
